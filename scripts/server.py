@@ -55,6 +55,9 @@ _config = {
     'password': None,
 }
 
+COOKIE_NAME = 'md_auth'
+COOKIE_MAX_AGE = 30 * 24 * 60 * 60  # 30 days
+
 
 def is_path_allowed(file_path: str) -> tuple[bool, str]:
     """Check if path is allowed to be read. Returns (allowed, reason)"""
@@ -130,14 +133,26 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             background: #f5f5f5; /* Light gray header */
             border-bottom: 2px solid #000000; /* Strong border */
             padding: 16px 24px; 
-            position: sticky; 
+            position: fixed; 
             top: 0; 
+            left: 0; 
+            right: 0; 
             z-index: 100; 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
             flex-wrap: wrap; 
             gap: 12px; 
+            transform: translateY(0);
+            transition: transform 0.2s ease;
+        }}
+        
+        .header.hidden {{ 
+            transform: translateY(-100%);
+        }}
+        
+        .header-spacer {{ 
+            height: 60px;
         }}
         
         .header h1 {{ 
@@ -422,6 +437,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </style>
 </head>
 <body>
+    <div class="header-spacer"></div>
     <div class="header">
         <h1>📄 MD Viewer</h1>
         <div class="header-actions">
@@ -433,7 +449,41 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         {content}
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script>hljs.highlightAll();</script>
+    <script>
+        hljs.highlightAll();
+        
+        // Hide header on scroll down, show on scroll up
+        let lastScrollY = window.scrollY;
+        const header = document.querySelector('.header');
+        let ticking = false;
+        
+        window.addEventListener('scroll', () => {{
+            if (!ticking) {{
+                window.requestAnimationFrame(() => {{
+                    const currentScrollY = window.scrollY;
+                    
+                    if (currentScrollY > lastScrollY && currentScrollY > 80) {{
+                        // Scrolling down & past threshold - hide header
+                        header.classList.add('hidden');
+                    }} else if (currentScrollY < lastScrollY - 10) {{
+                        // Scrolling up - show header
+                        header.classList.remove('hidden');
+                    }}
+                    
+                    lastScrollY = currentScrollY;
+                    ticking = false;
+                }});
+                ticking = true;
+            }}
+        }});
+        
+        // Show header on tap near top
+        document.body.addEventListener('click', (e) => {{
+            if (e.clientY < 50) {{
+                header.classList.remove('hidden');
+            }}
+        }});
+    </script>
 </body>
 </html>
 """
@@ -445,50 +495,92 @@ class MDViewerHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {args[0]}")
     
-    def _check_auth(self, query) -> bool:
-        """Check if request is authenticated (from token or cookie)"""
-        password = _config.get('password')
-        if not password:
-            return True
-        
-        # Check URL token first
-        provided = query.get('token', [''])[0]
-        if provided == password:
-            return True
-        
-        # Check cookie
+    def _get_cookie_value(self):
+        """Get auth cookie value. Returns (value|None, malformed: bool)."""
         cookies = self.headers.get('Cookie', '')
+        if not cookies:
+            return None, False
+
         for cookie in cookies.split(';'):
             cookie = cookie.strip()
-            if cookie.startswith('md_auth='):
-                cookie_token = cookie[8:]
-                if cookie_token == password:
-                    return True
-        
-        return False
-    
+            if cookie.startswith(f'{COOKIE_NAME}='):
+                raw = cookie[len(COOKIE_NAME) + 1:]
+                if not raw or len(raw) > 256:
+                    return None, True
+                try:
+                    decoded = unquote(raw)
+                except Exception:
+                    return None, True
+
+                if any(ord(ch) < 32 for ch in decoded):
+                    return None, True
+                return decoded, False
+
+        return None, False
+
+    def _get_auth_state(self, query):
+        """Check auth state with cookie-first policy."""
+        password = _config.get('password')
+        if not password:
+            return {'ok': True, 'remembered': False, 'set_cookie': False, 'clear_cookie': False}
+
+        # 1) Cookie FIRST
+        cookie_token, malformed = self._get_cookie_value()
+        if malformed:
+            return {'ok': False, 'remembered': False, 'set_cookie': False, 'clear_cookie': True}
+
+        if cookie_token is not None:
+            if cookie_token == password:
+                return {'ok': True, 'remembered': True, 'set_cookie': False, 'clear_cookie': False}
+            return {'ok': False, 'remembered': False, 'set_cookie': False, 'clear_cookie': True}
+
+        # 2) URL token fallback
+        provided = query.get('token', [''])[0]
+        if provided == password:
+            return {'ok': True, 'remembered': False, 'set_cookie': True, 'clear_cookie': False}
+
+        return {'ok': False, 'remembered': False, 'set_cookie': False, 'clear_cookie': False}
+
     def _set_auth_cookie(self, password):
-        """Set authentication cookie"""
-        self.send_header('Set-Cookie', f'md_auth={quote(password)}; Path=/; Max-Age=86400; SameSite=Strict')
-    
+        """Queue authentication cookie for response"""
+        self._pending_cookie = f'{COOKIE_NAME}={quote(password, safe="")}; Path=/; Max-Age={COOKIE_MAX_AGE}; HttpOnly; SameSite=Lax'
+
     def _clear_auth_cookie(self):
-        """Clear authentication cookie"""
-        self.send_header('Set-Cookie', 'md_auth=; Path=/; Max-Age=0')
-    
+        """Queue cookie clear for response"""
+        self._pending_cookie = f'{COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax'
+
     def _get_auth_param(self) -> str:
         """Get auth parameter for URLs"""
-        password = _config.get('password')
-        return f"&token={quote(password)}" if password else ""
+        return ""
+
+    def _remembered_indicator(self) -> str:
+        if getattr(self, '_auth_via_cookie', False):
+            return '<p style="color:#0a5; font-size:13px; margin-bottom:12px; font-weight:bold;">✅ Remembered login (cookie)</p>'
+        return ''
+
+    def _apply_pending_cookie_header(self):
+        pending = getattr(self, '_pending_cookie', None)
+        if pending:
+            self.send_header('Set-Cookie', pending)
     
     def do_GET(self):
+        self._pending_cookie = None
+        self._auth_via_cookie = False
         parsed_path = urlparse(self.path)
         path = parsed_path.path
         query = parse_qs(parsed_path.query)
         
         # Check authentication
-        if not self._check_auth(query):
+        auth = self._get_auth_state(query)
+        if not auth['ok']:
+            if auth['clear_cookie']:
+                self._clear_auth_cookie()
             self._serve_login()
             return
+
+        self._auth_via_cookie = auth['remembered']
+        if auth['set_cookie']:
+            self._set_auth_cookie(_config.get('password', ''))
         
         try:
             if path == '/':
@@ -510,6 +602,8 @@ class MDViewerHandler(BaseHTTPRequestHandler):
     
     def do_POST(self):
         """Handle POST for login"""
+        self._pending_cookie = None
+        self._auth_via_cookie = False
         parsed_path = urlparse(self.path)
         if parsed_path.path == '/login':
             content_length = int(self.headers.get('Content-Length', 0))
@@ -548,9 +642,11 @@ class MDViewerHandler(BaseHTTPRequestHandler):
     
     def _serve_home(self, query):
         auth_param = self._get_auth_param()
+        indicator = self._remembered_indicator()
         content = f'''
         <div class="content">
             <h2 style="color: #000000; margin-bottom: 16px; font-size: 20px;">📂 Open Markdown File</h2>
+            {indicator}
             <form class="file-path-form" onsubmit="return openFile()">
                 <input type="text" id="filePath" class="file-path-input" placeholder="Enter absolute path to .md file" />
                 <button type="submit" class="btn submit-btn">📖 View File</button>
@@ -628,6 +724,7 @@ class MDViewerHandler(BaseHTTPRequestHandler):
     def _serve_history(self, query):
         history = self._load_history()
         auth_param = self._get_auth_param()
+        indicator = self._remembered_indicator()
         
         if not history:
             content = '''
@@ -658,6 +755,7 @@ class MDViewerHandler(BaseHTTPRequestHandler):
             content = f'''
             <div class="content">
                 <h2 style="color: #000000; margin-bottom: 16px; font-size: 20px;">📜 View History</h2>
+                {indicator}
                 <ul class="history-list">
                     {''.join(items)}
                 </ul>
@@ -707,6 +805,7 @@ class MDViewerHandler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('X-Frame-Options', 'DENY')
         self.send_header('X-XSS-Protection', '1; mode=block')
+        self._apply_pending_cookie_header()
         self.end_headers()
         self.wfile.write(html.encode('utf-8'))
     
@@ -716,6 +815,7 @@ class MDViewerHandler(BaseHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
         self.send_header('Pragma', 'no-cache')
         self.send_header('Expires', '0')
+        self._apply_pending_cookie_header()
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
     
@@ -760,7 +860,7 @@ class MDViewerHandler(BaseHTTPRequestHandler):
                 print(f"Error initializing history file: {e}")
     
     def _add_to_history(self, path, name):
-        """Add to history with file locking"""
+        """Add to history with file locking (race-condition safe)"""
         history_file = Path(_config['history_file'])
         
         with _history_lock:
@@ -787,10 +887,13 @@ class MDViewerHandler(BaseHTTPRequestHandler):
                 })
                 history = history[:50]
                 
-                # Write back with exclusive lock
-                with open(history_file, 'w', encoding='utf-8') as f:
+                # Write back with exclusive lock - use r+ to avoid truncate before lock
+                # Open in r+ mode, acquire lock, then truncate and write
+                with open(history_file, 'r+', encoding='utf-8') as f:
                     fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                     try:
+                        f.truncate(0)  # Truncate AFTER acquiring lock
+                        f.seek(0)  # Rewind to beginning
                         json.dump(history, f, indent=2)
                     finally:
                         fcntl.flock(f.fileno(), fcntl.LOCK_UN)
