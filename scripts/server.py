@@ -38,9 +38,8 @@ except ImportError:
 
 # Configuration
 DEFAULT_PORT = 8765
-DEFAULT_HOST = "127.0.0.1"  # localhost only by default (secure)
 DEFAULT_HISTORY_FILE = str(Path.home() / ".md-viewer-history.json")
-COOKIE_MAX_AGE = 86400  # 24 hours (matches README documentation)
+COOKIE_MAX_AGE = 30 * 24 * 60 * 60  # 30 days
 
 # History lock for thread safety
 _history_lock = threading.Lock()
@@ -69,7 +68,6 @@ _config = {
 }
 
 COOKIE_NAME = 'md_auth'
-COOKIE_MAX_AGE = 86400  # 24 hours (matches README documentation)
 
 
 def is_path_allowed(file_path: str) -> tuple[bool, str]:
@@ -595,8 +593,9 @@ class MDViewerHandler(BaseHTTPRequestHandler):
         self._pending_cookie = f'{COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax'
 
     def _get_auth_param(self) -> str:
-        """Get auth parameter for URLs"""
-        return ""
+        """Get auth parameter for URLs (for link sharing)"""
+        password = _config.get('password')
+        return f"&token={quote(password)}" if password else ""
 
     def _remembered_indicator(self) -> str:
         if getattr(self, '_auth_via_cookie', False):
@@ -973,14 +972,26 @@ def generate_password(length=12):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="MD Viewer Server - Secure local web server for Markdown files")
+    # Auto-detect LAN IP for default binding
+    lan_ip = get_local_ip()
+    
+    parser = argparse.ArgumentParser(description="MD Viewer Server - LAN-accessible web server for Markdown files")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--host", default=DEFAULT_HOST, help=f"Host to bind (default: {DEFAULT_HOST}, use 0.0.0.0 for LAN)")
+    parser.add_argument("--host", default=None, help=f"Host to bind (default: auto-detect LAN IP)")
     parser.add_argument("--history-file", default=str(DEFAULT_HISTORY_FILE))
     parser.add_argument("--password", default=None, help="Custom password (auto-generated if not set)")
     parser.add_argument("--no-history", action="store_true", help="Disable history tracking for privacy")
+    parser.add_argument("--localhost", action="store_true", help="Bind to localhost only (no LAN access)")
     
     args = parser.parse_args()
+    
+    # Determine host: localhost flag or auto-detect
+    if args.localhost:
+        bind_host = "127.0.0.1"
+    elif args.host:
+        bind_host = args.host
+    else:
+        bind_host = lan_ip  # Bind to LAN IP by default
     
     # Auto-generate password if not provided
     password = args.password or generate_password()
@@ -1004,23 +1015,21 @@ def main():
                 with open(history_file, 'w', encoding='utf-8') as f:
                     json.dump([], f)
     
-    local_ip = get_local_ip()
-    
     print("\n" + "=" * 60, flush=True)
     print("📄 MD Viewer Server Started", flush=True)
     print("=" * 60, flush=True)
-    print(f"Local:    http://localhost:{args.port}", flush=True)
     
-    # Warn about LAN exposure
-    if args.host == "0.0.0.0":
-        print(f"Network:  http://{local_ip}:{args.port}", flush=True)
-        print("-" * 60, flush=True)
-        print("⚠️  WARNING: LAN ACCESS ENABLED", flush=True)
-        print("   Anyone on same network can access!", flush=True)
-    else:
+    if bind_host == "127.0.0.1":
+        print(f"Local:    http://localhost:{args.port}", flush=True)
         print("Network:  Disabled (localhost only)", flush=True)
+    elif bind_host == "0.0.0.0":
+        print(f"Local:    http://localhost:{args.port}", flush=True)
+        print(f"Network:  http://{lan_ip}:{args.port}", flush=True)
         print("-" * 60, flush=True)
-        print("💡 Use --host 0.0.0.0 for LAN access", flush=True)
+        print("⚠️  Bound to all interfaces", flush=True)
+    else:
+        print(f"Local:    http://localhost:{args.port}", flush=True)
+        print(f"Network:  http://{bind_host}:{args.port}", flush=True)
     
     print("-" * 60, flush=True)
     print(f"🔐 Password: {password}", flush=True)
@@ -1034,7 +1043,7 @@ def main():
     print("Press Ctrl+C to stop", flush=True)
     print(flush=True)
     
-    server = HTTPServer((args.host, args.port), MDViewerHandler)
+    server = HTTPServer((bind_host, args.port), MDViewerHandler)
     
     try:
         server.serve_forever()

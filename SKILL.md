@@ -1,6 +1,6 @@
 ---
 name: md-viewer
-description: Secure LAN-accessible web viewer for Markdown files optimized for e-readers. TRIGGER when user says "cho tôi xem", "show me", "mở file", "view file", "xem md", "xem file này", or wants to review a .md file. Instead of reading/summarizing, generate a LAN link for user to view directly in browser from any device on WiFi.
+description: LAN-accessible web viewer for Markdown files optimized for e-readers. Auto-binds to LAN IP for easy access. TRIGGER when user says "cho tôi xem", "show me", "mở file", "view file", "xem md", "xem file này", or wants to review a .md file. Instead of reading/summarizing, generate a LAN link for user to view directly in browser from any device on WiFi.
 ---
 
 # MD Viewer
@@ -17,16 +17,16 @@ User wants to VIEW the file themselves, not hear a summary.
 
 - ✅ **Only .md files** - Blocks all other file types
 - ✅ **Blocked paths** - Cannot access /etc, ~/.ssh, ~/.gnupg, etc.
-- ✅ **Password protection** - Auto-generated password with cookie auth
+- ✅ **Password protection** - Auto-generated password with cookie auth (30 days)
 - ✅ **XSS protection** - HTML sanitized with bleach library
 - ✅ **CSP headers** - Content Security Policy enforced
-- ✅ **Localhost default** - Binds to 127.0.0.1 by default (secure)
-- ✅ **No password in URL** - Cookie-based auth, no token leakage
+- ✅ **Auto LAN IP binding** - Binds to LAN IP automatically
+- ✅ **Link sharing** - Token in URL for one-time access, saves cookie for future
 - ✅ **No caching** - Files always refresh on page reload
 
 ## Workflow
 
-### Step 1: Start Server (Auto-generates password)
+### Step 1: Start Server (Auto-generates password and binds to LAN)
 
 ```bash
 python3 ~/.openclaw/skills/md-viewer/scripts/server.py
@@ -34,32 +34,29 @@ python3 ~/.openclaw/skills/md-viewer/scripts/server.py
 
 Output:
 ```
+============================================================
 📄 MD Viewer Server Started
 ============================================================
 Local:    http://localhost:8765
-Network:  Disabled (localhost only)
-------------------------------------------------------------
-💡 Use --host 0.0.0.0 for LAN access
+Network:  http://10.0.10.93:8765
 ------------------------------------------------------------
 🔐 Password: a1b2c3d4e5f6
    ⚠️  SAVE THIS PASSWORD - Required for login!
 ============================================================
 ```
 
-### Step 2: Open in Browser
+### Step 2: Share Link
 
-1. Open `http://localhost:8765` in browser
-2. Enter password
-3. Password saved to cookie (24 hours)
-4. View files freely
-
-### Step 3: Enable LAN Access (Optional)
-
-```bash
-python3 ~/.openclaw/skills/md-viewer/scripts/server.py --host 0.0.0.0
+Links include password token for easy sharing:
+```
+http://10.0.10.93:8765/view?path=/path/to/file.md&token=PASSWORD
 ```
 
-⚠️ **Warning**: Anyone on same WiFi can access!
+### Step 3: Access
+
+1. Click link → Auto-authenticated via token
+2. Password saved to cookie (30 days)
+3. Future visits → Auto-authenticated via cookie
 
 ## Server Options
 
@@ -67,19 +64,12 @@ python3 ~/.openclaw/skills/md-viewer/scripts/server.py --host 0.0.0.0
 python3 ~/.openclaw/skills/md-viewer/scripts/server.py [options]
 
 Options:
-  --host HOST          Host (default: 127.0.0.1, use 0.0.0.0 for LAN)
+  --host HOST          Host to bind (default: auto-detect LAN IP)
   --port PORT          Port (default: 8765)
   --password PASSWORD  Custom password (auto-generated if not set)
   --no-history         Disable history tracking for privacy
+  --localhost          Bind to localhost only (no LAN access)
 ```
-
-## Security Best Practices
-
-1. **Default is localhost only** - Secure by default
-2. **Use --host 0.0.0.0 only on trusted networks**
-3. **Password stored in cookie, not URL** - No leakage via logs
-4. **Install bleach for robust XSS protection**: `pip3 install bleach`
-5. **Use --no-history** if privacy is critical
 
 ## Blocked Paths
 
@@ -98,9 +88,10 @@ Automatically blocked:
 - High contrast for e-readers
 - Syntax highlighting
 - Mobile-friendly UI
-- History tracking (50 files, optional)
-- Cookie-based authentication
+- History tracking (50 files, enabled by default)
+- Cookie-based authentication (30 days)
 - XSS protection with bleach
+- Auto LAN IP binding
 
 ## Dependencies
 
