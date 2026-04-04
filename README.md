@@ -1,6 +1,6 @@
 # 📄 MD Viewer - LAN Markdown Viewer for OpenClaw
 
-A secure, LAN-accessible web viewer for Markdown files. Perfect for reviewing AI-generated documentation on your phone or tablet while working with AI agents.
+A secure, LAN-accessible web viewer for Markdown files. Perfect for reviewing AI-generated documentation on your phone, tablet, or e-reader while working with AI agents.
 
 ![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-Skill-blue)
 ![Python](https://img.shields.io/badge/Python-3.8%2B-green)
@@ -8,12 +8,13 @@ A secure, LAN-accessible web viewer for Markdown files. Perfect for reviewing AI
 
 ## ✨ Features
 
-- 🌐 **LAN Access** - View from any device on same WiFi (phone, tablet, laptop)
-- 🔐 **Password Protected** - Auto-generated secure password on startup
+- 🌐 **LAN Access** - View from any device on same WiFi (phone, tablet, e-reader)
+- 📱 **E-ink Optimized** - Light theme, serif fonts, high contrast for e-readers
+- 🔐 **Password Protected** - Auto-generated password saved to cookie for easy access
 - 🛡️ **Security First** - Only `.md` files, blocked sensitive paths, XSS protection
-- 📱 **Mobile Friendly** - Responsive dark theme UI
 - 📜 **History Tracking** - Quick access to recently viewed files
 - 🎨 **Syntax Highlighting** - Code blocks rendered with highlight.js
+- 🔄 **No Caching** - Always shows latest file content on refresh
 
 ## 🚀 Quick Start
 
@@ -63,6 +64,20 @@ Output:
 
 Just open the link from any device on the same WiFi network!
 
+## 🔐 Authentication
+
+### Cookie-Based Auth
+- Password is saved to cookie on successful login
+- No need to re-enter password for subsequent visits
+- Cookie expires after 24 hours
+- Invalid password clears the cookie
+
+### Login Flow
+1. First visit → Enter password
+2. Password saved to cookie
+3. Future visits → Automatic authentication
+4. Wrong password → Cookie cleared, re-login required
+
 ## 🛡️ Security Features
 
 ### Only .md Files Allowed
@@ -84,6 +99,15 @@ Just open the link from any device on the same WiFi network!
 - Content Security Policy headers
 - No raw HTML in markdown
 
+## 📖 E-ink Optimization
+
+Perfect for Kindle, Kobo, and other e-readers:
+- **Light theme** - White background, black text
+- **Serif fonts** - Georgia for comfortable reading
+- **High contrast** - Clear borders and text
+- **No animations** - Saves battery life
+- **Normal font sizes** - Not too large, not too small
+
 ## 📖 Use Cases
 
 ### 1. AI Agent Integration
@@ -96,13 +120,14 @@ Agent: "I've created plan.md. View at: http://10.0.10.93:8765/view?path=..."
 
 ### 2. Documentation Review
 - View documentation on tablet while coding on laptop
+- Read on e-reader (Kindle/Kobo) for comfortable reading
 - Share meeting notes with team on same WiFi
 - Review AI-generated plans on phone
 
-### 3. Team Collaboration
-- Quick share markdown docs without Slack/Email
-- No cloud upload needed
-- Instant local sharing
+### 3. E-reader Friendly
+- Perfect for reading long documents on e-ink screens
+- High contrast light theme
+- Serif fonts for better readability
 
 ## 🔧 Configuration
 
@@ -130,10 +155,10 @@ pip3 install markdown
 
 ```bash
 # Method 1: Clone to skills directory
-git clone https://github.com/YOUR_USERNAME/md-viewer.git ~/.openclaw/skills/md-viewer
+git clone https://github.com/hoangcongst/md-viewer.git ~/.openclaw/skills/md-viewer
 
 # Method 2: Download and extract
-curl -L https://github.com/YOUR_USERNAME/md-viewer/archive/main.zip -o md-viewer.zip
+curl -L https://github.com/hoangcongst/md-viewer/archive/main.zip -o md-viewer.zip
 unzip md-viewer.zip -d ~/.openclaw/skills/
 mv ~/.openclaw/skills/md-viewer-main ~/.openclaw/skills/md-viewer
 ```
@@ -173,11 +198,20 @@ md-viewer/
     └── md-link.py        # Link generator
 ```
 
+## 🔄 File Refresh
+
+Files are always reloaded on page refresh:
+- `Cache-Control: no-store` headers
+- `Pragma: no-cache` headers
+- No browser caching
+- Always shows latest file content
+
 ## 🔒 Security Notes
 
 ⚠️ **Important:**
 - Password is auto-generated on each server start
 - Save the password immediately - it's required for all links
+- Password saved in cookie for 24 hours
 - Anyone on same WiFi can access if they have the password
 - Stop server when not needed: `pkill -f server.py`
 - Only use on trusted networks (home/office)
@@ -186,7 +220,7 @@ md-viewer/
 
 - [markdown](https://github.com/Python-Markdown/markdown) - Python Markdown parser
 - [highlight.js](https://highlightjs.org/) - Syntax highlighting
-- [GitHub Markdown CSS](https://github.com/sindresorhus/github-markdown-css) - Dark theme
+- [OpenClaw](https://openclaw.ai) - AI agent platform
 
 ## 📄 License
 

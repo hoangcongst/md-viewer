@@ -106,52 +106,319 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{title}</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown-dark.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: https:;">
     <style>
+        /* E-INK OPTIMIZED - Light theme with high contrast */
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; min-height: 100vh; font-size: 16px; }}
-        .container {{ max-width: 1200px; margin: 0 auto; padding: 16px; }}
-        .header {{ background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 16px; position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }}
-        .header h1 {{ color: #c9d1d9; font-size: 16px; font-weight: 600; }}
-        .header-actions {{ display: flex; gap: 8px; }}
-        .btn {{ background: #238636; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 16px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }}
-        .btn:hover {{ background: #2ea043; }}
-        .btn-secondary {{ background: #21262d; border: 1px solid #30363d; padding: 8px 16px; }}
-        .btn-secondary:hover {{ background: #30363d; }}
-        .content {{ background: #161b22; border: 1px solid #30363d; border-radius: 12px; margin-top: 16px; padding: 20px; }}
-        .markdown-body {{ color: #c9d1d9; font-size: 16px; line-height: 1.6; }}
-        .markdown-body h1 {{ font-size: 1.5em; border-bottom: 1px solid #30363d; padding-bottom: 0.3em; }}
-        .markdown-body h2 {{ font-size: 1.3em; border-bottom: 1px solid #30363d; padding-bottom: 0.3em; }}
-        .markdown-body h3 {{ font-size: 1.1em; }}
-        .markdown-body code {{ background: #0d1117; padding: 0.2em 0.4em; border-radius: 4px; }}
-        .markdown-body pre {{ background: #0d1117; border: 1px solid #30363d; border-radius: 8px; overflow-x: auto; }}
-        .markdown-body pre code {{ background: transparent; }}
-        .markdown-body a {{ color: #58a6ff; }}
-        .markdown-body a:hover {{ text-decoration: underline; }}
-        .markdown-body blockquote {{ border-left: 4px solid #3fb950; background: #0d1117; padding: 16px; border-radius: 0 8px 8px 0; }}
-        .markdown-body table {{ border-collapse: collapse; width: 100%; overflow-x: auto; display: block; }}
-        .markdown-body th, .markdown-body td {{ border: 1px solid #30363d; padding: 8px 12px; }}
-        .markdown-body th {{ background: #0d1117; }}
+        
+        body {{ 
+            font-family: 'Georgia', 'Times New Roman', serif; /* Serif fonts better for e-ink */
+            background: #ffffff; /* White background for e-ink */
+            color: #000000; /* Black text for high contrast */
+            min-height: 100vh; 
+            font-size: 16px; /* Normal font size */
+            line-height: 1.7; /* Comfortable line spacing */
+        }}
+        
+        .container {{ 
+            max-width: 900px; /* Narrower for better reading */
+            margin: 0 auto; 
+            padding: 24px; 
+        }}
+        
+        .header {{ 
+            background: #f5f5f5; /* Light gray header */
+            border-bottom: 2px solid #000000; /* Strong border */
+            padding: 16px 24px; 
+            position: sticky; 
+            top: 0; 
+            z-index: 100; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            gap: 12px; 
+        }}
+        
+        .header h1 {{ 
+            color: #000000; 
+            font-size: 18px; 
+            font-weight: bold; 
+            font-family: 'Georgia', serif;
+        }}
+        
+        .header-actions {{ display: flex; gap: 12px; }}
+        
+        .btn {{ 
+            background: #000000; 
+            color: #ffffff; 
+            border: 2px solid #000000;
+            padding: 10px 20px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 14px; 
+            font-weight: bold;
+            text-decoration: none; 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 6px; 
+            min-height: 44px; 
+        }}
+        
+        .btn:hover {{ 
+            background: #333333; 
+        }}
+        
+        .btn-secondary {{ 
+            background: #ffffff; 
+            color: #000000;
+            border: 2px solid #000000; 
+            padding: 8px 16px; 
+        }}
+        
+        .btn-secondary:hover {{ 
+            background: #f0f0f0; 
+        }}
+        
+        .content {{ 
+            background: #ffffff; 
+            border: 2px solid #000000; 
+            border-radius: 8px; 
+            margin-top: 20px; 
+            padding: 24px; 
+        }}
+        
+        /* Markdown body - E-ink optimized */
+        .markdown-body {{ 
+            color: #000000; 
+            font-size: 16px; 
+            line-height: 1.7; 
+            font-family: 'Georgia', serif;
+        }}
+        
+        .markdown-body h1 {{ 
+            font-size: 1.5em; /* Normal heading size */
+            border-bottom: 2px solid #000000; 
+            padding-bottom: 0.3em; 
+            margin-top: 1.2em;
+            margin-bottom: 0.6em;
+            font-weight: bold;
+        }}
+        
+        .markdown-body h2 {{ 
+            font-size: 1.3em; 
+            border-bottom: 2px solid #000000; 
+            padding-bottom: 0.3em; 
+            margin-top: 1.1em;
+            margin-bottom: 0.5em;
+            font-weight: bold;
+        }}
+        
+        .markdown-body h3 {{ 
+            font-size: 1.1em; 
+            margin-top: 1em;
+            margin-bottom: 0.4em;
+            font-weight: bold;
+        }}
+        
+        .markdown-body p {{
+            margin-bottom: 1em;
+        }}
+        
+        .markdown-body code {{ 
+            background: #f0f0f0; 
+            color: #000000;
+            padding: 0.2em 0.4em; 
+            border-radius: 4px; 
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            border: 1px solid #cccccc;
+        }}
+        
+        .markdown-body pre {{ 
+            background: #f8f8f8; 
+            border: 2px solid #000000; 
+            border-radius: 8px; 
+            overflow-x: auto; 
+            padding: 16px;
+            margin: 1em 0;
+        }}
+        
+        .markdown-body pre code {{ 
+            background: transparent; 
+            border: none;
+            font-size: 14px;
+            line-height: 1.5;
+        }}
+        
+        .markdown-body a {{ 
+            color: #000000; 
+            text-decoration: underline;
+            font-weight: bold;
+            border-bottom: 2px solid #000000;
+        }}
+        
+        .markdown-body a:hover {{ 
+            background: #f0f0f0;
+        }}
+        
+        .markdown-body blockquote {{ 
+            border-left: 4px solid #000000; 
+            background: #f8f8f8; 
+            padding: 16px; 
+            margin: 1em 0;
+            font-style: italic;
+        }}
+        
+        .markdown-body ul, .markdown-body ol {{
+            margin-left: 1.5em;
+            margin-bottom: 1em;
+        }}
+        
+        .markdown-body li {{
+            margin-bottom: 0.3em;
+        }}
+        
+        .markdown-body table {{ 
+            border-collapse: collapse; 
+            width: 100%; 
+            overflow-x: auto; 
+            display: block; 
+            margin: 1em 0;
+            border: 2px solid #000000;
+        }}
+        
+        .markdown-body th, .markdown-body td {{ 
+            border: 1px solid #000000; 
+            padding: 8px 12px; 
+        }}
+        
+        .markdown-body th {{ 
+            background: #f0f0f0; 
+            font-weight: bold;
+        }}
+        
+        .markdown-body tr:nth-child(even) {{
+            background: #f8f8f8;
+        }}
+        
+        /* History - E-ink optimized */
         .history-list {{ list-style: none; padding: 0; }}
-        .history-item {{ background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }}
-        .history-item:hover {{ border-color: #58a6ff; }}
-        .history-title {{ color: #58a6ff; font-weight: 600; font-size: 16px; word-break: break-word; }}
-        .history-path {{ color: #8b949e; font-size: 12px; font-family: monospace; word-break: break-all; }}
-        .history-time {{ color: #6e7681; font-size: 12px; }}
+        
+        .history-item {{ 
+            background: #ffffff; 
+            border: 2px solid #000000; 
+            border-radius: 8px; 
+            padding: 16px; 
+            margin-bottom: 12px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+        }}
+        
+        .history-item:hover {{ 
+            background: #f8f8f8;
+        }}
+        
+        .history-title {{ 
+            color: #000000; 
+            font-weight: bold; 
+            font-size: 16px; 
+            word-break: break-word; 
+        }}
+        
+        .history-path {{ 
+            color: #333333; 
+            font-size: 12px; 
+            font-family: 'Courier New', monospace; 
+            word-break: break-all; 
+        }}
+        
+        .history-time {{ 
+            color: #555555; 
+            font-size: 12px; 
+        }}
+        
         .history-actions {{ margin-top: 8px; }}
-        .empty-state {{ text-align: center; padding: 40px 20px; color: #8b949e; }}
-        .file-path-form {{ display: flex; flex-direction: column; gap: 10px; }}
-        .file-path-input {{ width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 12px 16px; border-radius: 8px; font-size: 16px; min-height: 44px; }}
-        .file-path-input:focus {{ outline: none; border-color: #58a6ff; }}
+        
+        .empty-state {{ 
+            text-align: center; 
+            padding: 40px 20px; 
+            color: #333333; 
+            font-size: 16px;
+        }}
+        
+        .file-path-form {{ display: flex; flex-direction: column; gap: 12px; }}
+        
+        .file-path-input {{ 
+            width: 100%; 
+            background: #ffffff; 
+            border: 2px solid #000000; 
+            color: #000000; 
+            padding: 12px 16px; 
+            border-radius: 8px; 
+            font-size: 16px; 
+            min-height: 44px; 
+            font-family: 'Courier New', monospace;
+        }}
+        
+        .file-path-input:focus {{ 
+            outline: none; 
+            border-color: #000000;
+            background: #f8f8f8;
+        }}
+        
         .submit-btn {{ width: 100%; }}
-        .error-message {{ background: #da3633; color: white; padding: 16px; border-radius: 8px; margin: 20px 0; word-break: break-word; }}
-        .back-link {{ color: #58a6ff; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 16px; font-size: 16px; }}
-        .back-link:hover {{ text-decoration: underline; }}
+        
+        .error-message {{ 
+            background: #000000; 
+            color: #ffffff; 
+            padding: 16px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            word-break: break-word; 
+            font-size: 14px;
+            font-weight: bold;
+        }}
+        
+        .back-link {{ 
+            color: #000000; 
+            text-decoration: none; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 6px; 
+            margin-bottom: 20px; 
+            font-size: 14px; 
+            font-weight: bold;
+            border-bottom: 2px solid #000000;
+        }}
+        
+        .back-link:hover {{ 
+            background: #f0f0f0;
+        }}
+        
         .login-form {{ max-width: 400px; margin: 40px auto; }}
+        
         .login-form input {{ width: 100%; margin-bottom: 12px; }}
-        @media (max-width: 600px) {{ .container {{ padding: 8px; }} .content {{ padding: 12px; }} .btn {{ padding: 10px 16px; font-size: 14px; }} .markdown-body {{ font-size: 15px; }} }}
+        
+        /* Mobile responsive */
+        @media (max-width: 600px) {{ 
+            body {{ font-size: 15px; }}
+            .container {{ padding: 12px; }} 
+            .content {{ padding: 16px; }} 
+            .btn {{ padding: 10px 16px; font-size: 14px; }} 
+            .markdown-body {{ font-size: 15px; }}
+            .markdown-body h1 {{ font-size: 1.4em; }}
+            .markdown-body h2 {{ font-size: 1.2em; }}
+            .markdown-body h3 {{ font-size: 1.1em; }}
+        }}
+        
+        /* E-ink specific - reduce animations/transitions */
+        * {{
+            transition: none !important;
+            animation: none !important;
+        }}
     </style>
 </head>
 <body>
@@ -179,12 +446,34 @@ class MDViewerHandler(BaseHTTPRequestHandler):
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {args[0]}")
     
     def _check_auth(self, query) -> bool:
-        """Check if request is authenticated"""
+        """Check if request is authenticated (from token or cookie)"""
         password = _config.get('password')
         if not password:
             return True
+        
+        # Check URL token first
         provided = query.get('token', [''])[0]
-        return provided == password
+        if provided == password:
+            return True
+        
+        # Check cookie
+        cookies = self.headers.get('Cookie', '')
+        for cookie in cookies.split(';'):
+            cookie = cookie.strip()
+            if cookie.startswith('md_auth='):
+                cookie_token = cookie[8:]
+                if cookie_token == password:
+                    return True
+        
+        return False
+    
+    def _set_auth_cookie(self, password):
+        """Set authentication cookie"""
+        self.send_header('Set-Cookie', f'md_auth={quote(password)}; Path=/; Max-Age=86400; SameSite=Strict')
+    
+    def _clear_auth_cookie(self):
+        """Clear authentication cookie"""
+        self.send_header('Set-Cookie', 'md_auth=; Path=/; Max-Age=0')
     
     def _get_auth_param(self) -> str:
         """Get auth parameter for URLs"""
@@ -229,11 +518,15 @@ class MDViewerHandler(BaseHTTPRequestHandler):
             
             password = params.get('password', [''])[0]
             if password == _config.get('password'):
-                # Redirect to home with token
+                # Set cookie and redirect to home
                 self.send_response(302)
-                self.send_header('Location', f'/?token={quote(password)}')
+                self._set_auth_cookie(password)
+                self.send_header('Location', '/')
                 self.end_headers()
             else:
+                # Clear cookie on failed login
+                self.send_response(200)
+                self._clear_auth_cookie()
                 self._serve_login(error="Invalid password")
         else:
             self._serve_404({})
@@ -243,7 +536,7 @@ class MDViewerHandler(BaseHTTPRequestHandler):
         error_html = f'<div class="error-message">{escape(error)}</div>' if error else ''
         content = f'''
         <div class="content login-form">
-            <h2 style="color: #c9d1d9; margin-bottom: 20px; text-align: center;">🔐 Login Required</h2>
+            <h2 style="color: #000000; margin-bottom: 20px; text-align: center; font-size: 20px;">🔐 Login Required</h2>
             {error_html}
             <form method="POST" action="/login">
                 <input type="password" name="password" class="file-path-input" placeholder="Enter password" required />
@@ -257,12 +550,12 @@ class MDViewerHandler(BaseHTTPRequestHandler):
         auth_param = self._get_auth_param()
         content = f'''
         <div class="content">
-            <h2 style="color: #c9d1d9; margin-bottom: 16px;">📂 Open Markdown File</h2>
+            <h2 style="color: #000000; margin-bottom: 16px; font-size: 20px;">📂 Open Markdown File</h2>
             <form class="file-path-form" onsubmit="return openFile()">
                 <input type="text" id="filePath" class="file-path-input" placeholder="Enter absolute path to .md file" />
                 <button type="submit" class="btn submit-btn">📖 View File</button>
             </form>
-            <p style="color: #8b949e; font-size: 14px; margin-top: 16px;">
+            <p style="color: #333333; font-size: 14px; margin-top: 16px;">
                 💡 Only .md files allowed. Sensitive paths blocked.
             </p>
         </div>
@@ -340,7 +633,7 @@ class MDViewerHandler(BaseHTTPRequestHandler):
             content = '''
             <div class="content">
                 <div class="empty-state">
-                    <h2>📭 No history yet</h2>
+                    <h2 style="font-size: 18px; margin-bottom: 12px;">📭 No history yet</h2>
                     <p>Files you view will appear here.</p>
                 </div>
             </div>
@@ -364,7 +657,7 @@ class MDViewerHandler(BaseHTTPRequestHandler):
             
             content = f'''
             <div class="content">
-                <h2 style="color: #c9d1d9; margin-bottom: 16px;">📜 View History</h2>
+                <h2 style="color: #000000; margin-bottom: 16px; font-size: 20px;">📜 View History</h2>
                 <ul class="history-list">
                     {''.join(items)}
                 </ul>
@@ -388,7 +681,7 @@ class MDViewerHandler(BaseHTTPRequestHandler):
         content = '''
         <div class="content">
             <div class="empty-state">
-                <h2>❌ 404 Not Found</h2>
+                <h2 style="font-size: 20px; margin-bottom: 12px;">❌ 404 Not Found</h2>
                 <p>The page you're looking for doesn't exist.</p>
                 <a href="/" class="btn" style="margin-top: 20px;">Go Home</a>
             </div>
@@ -408,6 +701,9 @@ class MDViewerHandler(BaseHTTPRequestHandler):
     def _send_html(self, html, status=200):
         self.send_response(status)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('X-Frame-Options', 'DENY')
         self.send_header('X-XSS-Protection', '1; mode=block')
@@ -417,6 +713,9 @@ class MDViewerHandler(BaseHTTPRequestHandler):
     def _send_json(self, data, status=200):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
+        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
     
