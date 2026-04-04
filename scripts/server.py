@@ -660,6 +660,7 @@ class MDViewerHandler(BaseHTTPRequestHandler):
                 # Set cookie and redirect to home
                 self.send_response(302)
                 self._set_auth_cookie(password)
+                self._apply_pending_cookie_header()
                 self.send_header('Location', '/')
                 self.end_headers()
             else:
