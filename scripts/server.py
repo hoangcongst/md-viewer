@@ -3,10 +3,11 @@
 MD Viewer Server - Local web server for viewing Markdown files (SECURE VERSION)
 
 Usage:
-    python3 server.py [--port PORT] [--host HOST] [--history-file FILE] [--password PASSWORD]
+    python3 server.py [--port PORT] [--host HOST] [--history-file FILE] [--password PASSWORD] [--no-history]
 
 Examples:
     python3 server.py --password mysecret
+    python3 server.py --host 0.0.0.0 --password mysecret  # Enable LAN access
 """
 
 import argparse
@@ -15,6 +16,8 @@ import json
 import os
 import re
 import secrets
+import string
+import random
 import sys
 import threading
 from datetime import datetime
@@ -25,10 +28,19 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 
 import markdown
 
+# Try to import bleach for proper HTML sanitization
+try:
+    import bleach
+    BLEACH_AVAILABLE = True
+except ImportError:
+    BLEACH_AVAILABLE = False
+    print("Warning: bleach not installed. Using basic sanitization. Install with: pip3 install bleach")
+
 # Configuration
 DEFAULT_PORT = 8765
-DEFAULT_HOST = "0.0.0.0"
+DEFAULT_HOST = "127.0.0.1"  # localhost only by default (secure)
 DEFAULT_HISTORY_FILE = str(Path.home() / ".md-viewer-history.json")
+COOKIE_MAX_AGE = 86400  # 24 hours (matches README documentation)
 
 # History lock for thread safety
 _history_lock = threading.Lock()
@@ -53,10 +65,11 @@ BLOCKED_PATTERNS = [
 _config = {
     'history_file': DEFAULT_HISTORY_FILE,
     'password': None,
+    'no_history': False,
 }
 
 COOKIE_NAME = 'md_auth'
-COOKIE_MAX_AGE = 30 * 24 * 60 * 60  # 30 days
+COOKIE_MAX_AGE = 86400  # 24 hours (matches README documentation)
 
 
 def is_path_allowed(file_path: str) -> tuple[bool, str]:
@@ -81,11 +94,43 @@ def is_path_allowed(file_path: str) -> tuple[bool, str]:
 
 
 def sanitize_html_content(html: str) -> str:
-    """Sanitize HTML to prevent XSS"""
-    # Remove script tags and event handlers
-    # This is a basic sanitizer - for production, use bleach library
-    import re
+    """Sanitize HTML to prevent XSS using bleach (preferred) or fallback regex"""
     
+    if BLEACH_AVAILABLE:
+        # Use bleach for robust sanitization
+        ALLOWED_TAGS = [
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'p', 'br', 'hr',
+            'strong', 'em', 'b', 'i', 'u',
+            'code', 'pre',
+            'ul', 'ol', 'li',
+            'a', 'img',
+            'blockquote',
+            'table', 'thead', 'tbody', 'tr', 'th', 'td',
+            'span', 'div',
+        ]
+        
+        ALLOWED_ATTRS = {
+            'a': ['href', 'title', 'name'],
+            'img': ['src', 'alt', 'title', 'width', 'height'],
+            'code': ['class'],  # for syntax highlighting
+            'pre': ['class'],
+            'span': ['class'],
+            'div': ['class'],
+            'h1': ['id'], 'h2': ['id'], 'h3': ['id'], 'h4': ['id'], 'h5': ['id'], 'h6': ['id'],
+        }
+        
+        ALLOWED_PROTOCOLS = ['http', 'https', 'mailto']
+        
+        return bleach.clean(
+            html,
+            tags=ALLOWED_TAGS,
+            attributes=ALLOWED_ATTRS,
+            protocols=ALLOWED_PROTOCOLS,
+            strip=True
+        )
+    
+    # Fallback: basic regex sanitization (less secure)
     # Remove script tags
     html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
     html = re.sub(r'<script[^>]*/?>', '', html, flags=re.IGNORECASE)
@@ -860,7 +905,11 @@ class MDViewerHandler(BaseHTTPRequestHandler):
                 print(f"Error initializing history file: {e}")
     
     def _add_to_history(self, path, name):
-        """Add to history with file locking (race-condition safe)"""
+        """Add to history with file locking (disabled if --no-history)"""
+        # Skip if history disabled
+        if _config.get('no_history', False):
+            return
+        
         history_file = Path(_config['history_file'])
         
         with _history_lock:
@@ -925,9 +974,10 @@ def generate_password(length=12):
 def main():
     parser = argparse.ArgumentParser(description="MD Viewer Server - Secure local web server for Markdown files")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--host", default=DEFAULT_HOST)
+    parser.add_argument("--host", default=DEFAULT_HOST, help=f"Host to bind (default: {DEFAULT_HOST}, use 0.0.0.0 for LAN)")
     parser.add_argument("--history-file", default=str(DEFAULT_HISTORY_FILE))
     parser.add_argument("--password", default=None, help="Custom password (auto-generated if not set)")
+    parser.add_argument("--no-history", action="store_true", help="Disable history tracking for privacy")
     
     args = parser.parse_args()
     
@@ -936,20 +986,22 @@ def main():
     
     _config['history_file'] = args.history_file
     _config['password'] = password
+    _config['no_history'] = args.no_history
     
-    # Initialize history file on startup
-    history_file = Path(_config['history_file'])
-    if not history_file.exists():
-        history_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(history_file, 'w', encoding='utf-8') as f:
-            json.dump([], f)
-    else:
-        try:
-            with open(history_file, 'r', encoding='utf-8') as f:
-                json.load(f)
-        except json.JSONDecodeError:
+    # Initialize history file on startup (unless disabled)
+    if not args.no_history:
+        history_file = Path(_config['history_file'])
+        if not history_file.exists():
+            history_file.parent.mkdir(parents=True, exist_ok=True)
             with open(history_file, 'w', encoding='utf-8') as f:
                 json.dump([], f)
+        else:
+            try:
+                with open(history_file, 'r', encoding='utf-8') as f:
+                    json.load(f)
+            except json.JSONDecodeError:
+                with open(history_file, 'w', encoding='utf-8') as f:
+                    json.dump([], f)
     
     local_ip = get_local_ip()
     
@@ -957,10 +1009,26 @@ def main():
     print("📄 MD Viewer Server Started", flush=True)
     print("=" * 60, flush=True)
     print(f"Local:    http://localhost:{args.port}", flush=True)
-    print(f"Network:  http://{local_ip}:{args.port}", flush=True)
+    
+    # Warn about LAN exposure
+    if args.host == "0.0.0.0":
+        print(f"Network:  http://{local_ip}:{args.port}", flush=True)
+        print("-" * 60, flush=True)
+        print("⚠️  WARNING: LAN ACCESS ENABLED", flush=True)
+        print("   Anyone on same network can access!", flush=True)
+    else:
+        print("Network:  Disabled (localhost only)", flush=True)
+        print("-" * 60, flush=True)
+        print("💡 Use --host 0.0.0.0 for LAN access", flush=True)
+    
     print("-" * 60, flush=True)
     print(f"🔐 Password: {password}", flush=True)
-    print("   ⚠️  SAVE THIS PASSWORD - Required for all links!", flush=True)
+    print("   ⚠️  SAVE THIS PASSWORD - Required for login!", flush=True)
+    
+    if args.no_history:
+        print("-" * 60, flush=True)
+        print("📜 History: DISABLED", flush=True)
+    
     print("=" * 60, flush=True)
     print("Press Ctrl+C to stop", flush=True)
     print(flush=True)

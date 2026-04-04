@@ -1,6 +1,6 @@
 ---
 name: md-viewer
-description: LAN-accessible web viewer for Markdown files with security features. TRIGGER when user says "cho tôi xem", "show me", "mở file", "view file", "xem md", "xem file này", or wants to review a .md file. Instead of reading/summarizing, generate a LAN link for user to view directly in browser from any device on WiFi.
+description: Secure LAN-accessible web viewer for Markdown files optimized for e-readers. TRIGGER when user says "cho tôi xem", "show me", "mở file", "view file", "xem md", "xem file này", or wants to review a .md file. Instead of reading/summarizing, generate a LAN link for user to view directly in browser from any device on WiFi.
 ---
 
 # MD Viewer
@@ -17,16 +17,19 @@ User wants to VIEW the file themselves, not hear a summary.
 
 - ✅ **Only .md files** - Blocks all other file types
 - ✅ **Blocked paths** - Cannot access /etc, ~/.ssh, ~/.gnupg, etc.
-- ✅ **Password protection** - Auto-generated password on first run
-- ✅ **XSS protection** - Sanitizes HTML output
+- ✅ **Password protection** - Auto-generated password with cookie auth
+- ✅ **XSS protection** - HTML sanitized with bleach library
 - ✅ **CSP headers** - Content Security Policy enforced
+- ✅ **Localhost default** - Binds to 127.0.0.1 by default (secure)
+- ✅ **No password in URL** - Cookie-based auth, no token leakage
+- ✅ **No caching** - Files always refresh on page reload
 
 ## Workflow
 
 ### Step 1: Start Server (Auto-generates password)
 
 ```bash
-python3 /opt/homebrew/lib/node_modules/openclaw/skills/md-viewer/scripts/server.py
+python3 ~/.openclaw/skills/md-viewer/scripts/server.py
 ```
 
 Output:
@@ -34,46 +37,49 @@ Output:
 📄 MD Viewer Server Started
 ============================================================
 Local:    http://localhost:8765
-Network:  http://10.0.10.93:8765
-Password: a1b2c3d4e5f6  ← SAVE THIS!
+Network:  Disabled (localhost only)
+------------------------------------------------------------
+💡 Use --host 0.0.0.0 for LAN access
+------------------------------------------------------------
+🔐 Password: a1b2c3d4e5f6
+   ⚠️  SAVE THIS PASSWORD - Required for login!
 ============================================================
 ```
 
-**Password is auto-generated. Save it!**
+### Step 2: Open in Browser
 
-### Step 2: Generate Link with Password
+1. Open `http://localhost:8765` in browser
+2. Enter password
+3. Password saved to cookie (24 hours)
+4. View files freely
 
-```bash
-python3 /opt/homebrew/lib/node_modules/openclaw/skills/md-viewer/scripts/md-link.py /path/to/file.md --password YOUR_PASSWORD
-```
-
-Output:
-```
-📄 Markdown Viewer Link:
-   http://10.0.10.93:8765/view?path=/path/to/file.md&token=YOUR_PASSWORD
-
-🔐 Password protected
-```
-
-### Step 3: Share Link
-
-Provide the full link including token:
-```
-http://10.0.10.93:8765/view?path=/path/to/file.md&token=PASSWORD
-```
-
-## Direct URL Format
-
-```
-http://<LAN-IP>:8765/view?path=/path/to/file.md&token=PASSWORD
-```
-
-## Get LAN IP
+### Step 3: Enable LAN Access (Optional)
 
 ```bash
-ipconfig getifaddr en0  # macOS
-hostname -I | awk '{print $1}'  # Linux
+python3 ~/.openclaw/skills/md-viewer/scripts/server.py --host 0.0.0.0
 ```
+
+⚠️ **Warning**: Anyone on same WiFi can access!
+
+## Server Options
+
+```bash
+python3 ~/.openclaw/skills/md-viewer/scripts/server.py [options]
+
+Options:
+  --host HOST          Host (default: 127.0.0.1, use 0.0.0.0 for LAN)
+  --port PORT          Port (default: 8765)
+  --password PASSWORD  Custom password (auto-generated if not set)
+  --no-history         Disable history tracking for privacy
+```
+
+## Security Best Practices
+
+1. **Default is localhost only** - Secure by default
+2. **Use --host 0.0.0.0 only on trusted networks**
+3. **Password stored in cookie, not URL** - No leakage via logs
+4. **Install bleach for robust XSS protection**: `pip3 install bleach`
+5. **Use --no-history** if privacy is critical
 
 ## Blocked Paths
 
@@ -81,40 +87,30 @@ Automatically blocked:
 - System: `/etc`, `/proc`, `/sys`, `/dev`, `/var/log`
 - SSH: `~/.ssh/`, `id_rsa`, `id_dsa`, etc.
 - GPG: `~/.gnupg/`
-- AWS: `~/.aws/`
+- Cloud: `~/.aws/`, `~/.gcp/`
 - Passwords: `.netrc`, `.pgpass`, `.env`
 - Certs: `.pem`, `.key`, `.p12`, `.pfx`
 
 ## Features
 
-- Dark theme (GitHub style)
+- Light theme (e-ink optimized)
+- Serif fonts for comfortable reading
+- High contrast for e-readers
 - Syntax highlighting
 - Mobile-friendly UI
-- History tracking (50 files)
-- Password authentication (required)
-- XSS protection
+- History tracking (50 files, optional)
+- Cookie-based authentication
+- XSS protection with bleach
 
-## Server Options
+## Dependencies
 
 ```bash
-python3 server.py [options]
-
-Options:
-  --port PORT          Port (default: 8765)
-  --host HOST          Host (default: 0.0.0.0)
-  --password PASSWORD  Use custom password (auto-generated if not set)
-  --history-file FILE  History file path
+pip3 install markdown bleach
 ```
 
 ## Resources
 
 ### scripts/
 
-- `server.py` - Web server with security
-- `md-link.py` - Link generator
-
-### Dependencies
-
-```bash
-pip3 install markdown
-```
+- `server.py` - Web server with security features
+- `md-link.py` - Link generator helper
