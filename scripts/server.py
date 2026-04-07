@@ -22,7 +22,7 @@ import sys
 import threading
 from datetime import datetime
 from html import escape
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
@@ -41,8 +41,8 @@ DEFAULT_PORT = 8765
 DEFAULT_HISTORY_FILE = str(Path.home() / ".md-viewer-history.json")
 COOKIE_MAX_AGE = 30 * 24 * 60 * 60  # 30 days
 
-# History lock for thread safety
-_history_lock = threading.Lock()
+# History lock for thread safety (RLock to prevent self-deadlock)
+_history_lock = threading.RLock()
 
 # Security: Blocked paths and patterns
 BLOCKED_PATHS = [
@@ -1026,7 +1026,7 @@ def main():
         print(f"Local:    http://localhost:{args.port}", flush=True)
         print(f"Network:  http://{lan_ip}:{args.port}", flush=True)
         print("-" * 60, flush=True)
-        print("⚠️  Bound to all interfaces", flush=True)
+        print("✅ Bound to all interfaces (localhost + LAN)", flush=True)
     else:
         print(f"Local:    http://localhost:{args.port}", flush=True)
         print(f"Network:  http://{bind_host}:{args.port}", flush=True)
@@ -1043,7 +1043,7 @@ def main():
     print("Press Ctrl+C to stop", flush=True)
     print(flush=True)
     
-    server = HTTPServer((bind_host, args.port), MDViewerHandler)
+    server = ThreadingHTTPServer((bind_host, args.port), MDViewerHandler)
     
     try:
         server.serve_forever()
