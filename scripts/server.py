@@ -637,6 +637,12 @@ class MDViewerHandler(BaseHTTPRequestHandler):
                     self._serve_markdown(unquote(file_path), query)
                 else:
                     self._serve_home(query)
+            elif path == '/download':
+                file_path = query.get('path', [''])[0]
+                if file_path:
+                    self._serve_download(unquote(file_path), query)
+                else:
+                    self._serve_404(query)
             elif path == '/api/history':
                 self._serve_history_json(query)
             else:
@@ -757,7 +763,10 @@ class MDViewerHandler(BaseHTTPRequestHandler):
         self._add_to_history(str(path), path.name)
         
         content = f'''
-        <a href="/{self._get_auth_param()}" class="back-link">← Back</a>
+        <div style="display: flex; gap: 12px; margin-bottom: 20px; align-items: center;">
+            <a href="/{self._get_auth_param()}" class="back-link" style="margin-bottom: 0;">← Back</a>
+            <a href="/download?path={quote(str(path))}{self._get_auth_param()}" class="btn" style="min-height: auto; padding: 8px 16px;">⬇️ Download</a>
+        </div>
         <div class="content">
             <article class="markdown-body">
                 {html_content}
@@ -765,6 +774,48 @@ class MDViewerHandler(BaseHTTPRequestHandler):
         </div>
         '''
         self._send_html(HTML_TEMPLATE.format(title=f"{escape(path.name)} - MD Viewer", content=content))
+    
+    def _serve_download(self, file_path, query):
+        """Serve markdown file as download"""
+        # Security: Check if path is allowed
+        allowed, reason = is_path_allowed(file_path)
+        if not allowed:
+            self._serve_error(f"Access denied: {escape(reason)}", query)
+            return
+        
+        path = Path(file_path).resolve()
+        
+        # Verify it's actually a .md file
+        if path.suffix.lower() != '.md':
+            self._serve_error("Only .md files are allowed", query)
+            return
+        
+        if not path.exists():
+            self._serve_error(f"File not found: {escape(file_path)}", query)
+            return
+        
+        if not path.is_file():
+            self._serve_error("Not a file", query)
+            return
+        
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except Exception as e:
+            self._serve_error(f"Cannot read file: {escape(str(e))}", query)
+            return
+        
+        # Send as file download
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/markdown; charset=utf-8')
+        self.send_header('Content-Disposition', f'attachment; filename="{path.name}"')
+        self.send_header('Content-Length', str(len(content.encode('utf-8'))))
+        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
+        self._apply_pending_cookie_header()
+        self.end_headers()
+        self.wfile.write(content.encode('utf-8'))
     
     def _serve_history(self, query):
         history = self._load_history()
